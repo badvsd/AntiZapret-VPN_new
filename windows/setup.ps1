@@ -84,14 +84,24 @@ if (-not $isAdmin) {
 # --- поиск Python -----------------------------------------------------------
 
 $python = $null
-foreach ($candidate in @("python", "py -3", "python3")) {
+$pythonExe = $null
+foreach ($candidate in @("python", "py", "python3")) {
     $cmd = Get-Command $candidate -ErrorAction SilentlyContinue
-    if ($cmd) {
+    if (-not $cmd) { continue }
+    $src = $cmd.Source
+    if (-not $src) { continue }
+    if ($candidate -eq "py") {
+        # Launcher `py` требует явного номера версии.
         try {
-            $ver = & $candidate --version 2>&1
-            if ($ver -match "Python 3") { $python = $candidate; break }
+            $ver = & $src -3 --version 2>&1
+            if ($ver -match "Python 3") { $python = "$src -3"; $pythonExe = $src; break }
         } catch { }
+        continue
     }
+    try {
+        $ver = & $src --version 2>&1
+        if ($ver -match "Python 3") { $python = $src; $pythonExe = $src; break }
+    } catch { }
 }
 if (-not $python) {
     Write-Host "Python 3 не найден. Установите Python 3.11+ с python.org и повторите." -ForegroundColor Red
@@ -149,7 +159,6 @@ Write-Step "Пересобираю маршруты и списки"
 
 if (-not $NoDisableIpv6) {
     Write-Step "Отключаю IPv6"
-    & $python -m azwin.cli --root $Root doctor | Out-Null
     $key = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters"
     try {
         New-ItemProperty -Path $key -Name "DisabledComponents" -Value 0xFFFFFFFF `
@@ -179,9 +188,6 @@ try {
 
 Write-Step "Регистрирую локальный DNS-резолвер"
 $taskName = "AntiZapret DNS"
-$exe = (Get-Command $candidate -ErrorAction SilentlyContinue)
-$pythonExe = (Get-Command python -ErrorAction SilentlyContinue).Source
-if (-not $pythonExe) { $pythonExe = (Get-Command py -ErrorAction SilentlyContinue).Source }
 $taskAction = New-ScheduledTaskAction -Execute $pythonExe `
     -Argument "-m azwin.dnsd --root `"$Root`" --mode $($settings['MODE']) --listen 127.0.0.1 --port 5353" `
     -WorkingDirectory $pkgDir
