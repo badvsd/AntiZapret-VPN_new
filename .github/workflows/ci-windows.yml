@@ -1,0 +1,42 @@
+name: CI (Windows)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "windows/**"
+  pull_request:
+    paths:
+      - "windows/**"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Тесты Windows-порта
+        working-directory: windows
+        run: python -m unittest discover -s tests -v
+
+      - name: Проверка синтаксиса PowerShell
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./setup.ps1), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Output "::error::$($_.Message)" }
+            exit 1
+          }
+          Write-Output "setup.ps1: синтаксис в порядке"
+
+      - name: CLI работает
+        working-directory: windows
+        run: |
+          python -m azwin.cli --help
+          python -m azwin.cli --root $env:RUNNER_TEMP\azwin parse
