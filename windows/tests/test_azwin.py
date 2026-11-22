@@ -16,6 +16,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from azwin import dnswire, lists, profiles, resolver  # noqa: E402
 
 
+class _BlockCryptography:
+    """Имитирует отсутствие пакета `cryptography` (find_spec, а не find_module)."""
+
+    def find_spec(self, name, path=None, target=None):
+        if name == "cryptography" or name.startswith("cryptography."):
+            raise ModuleNotFoundError(f"No module named {name!r}", name=name)
+        return None
+
+
 class TestDnsWire(unittest.TestCase):
     """Кодек DNS: кодирование/разбор пакета."""
 
@@ -401,6 +410,35 @@ class TestProfiles(unittest.TestCase):
         priv_bytes = base64.b64decode(private)
         derived = profiles._x25519_scalar_mult(
             priv_bytes, profiles._X25519_BASEPOINT)
+        self.assertEqual(base64.b64encode(derived).decode("ascii"), public)
+
+    def test_x25519_rfc7748_vector(self):
+        """Контрольный вектор RFC 7748 §6.1 для чистой реализации X25519."""
+        k = bytes.fromhex("a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a2244ba449ac4")
+        u = bytes.fromhex("e6db6867583030db3594c1a424b15f7c726624ec26b3353b10a903a6d0ab1c4c")
+        expected = bytes.fromhex(
+            "c3da55379de9c6908e94ea4df28d084f32eccf03491c71f754b4075577a28552")
+        self.assertEqual(profiles._x25519_scalar_mult(k, u), expected)
+
+    def test_key_generation_without_cryptography(self):
+        """Резервный путь без `cryptography` тоже должен работать.
+
+        На машине без установленного `cryptography` (Codespace, минимальный
+        Python) генерация ключей обязана оставаться рабочей.
+        """
+        import base64
+        import importlib.abc
+
+        blocker = _BlockCryptography()
+        sys.meta_path.insert(0, blocker)
+        try:
+            private, public = profiles.generate_wg_keys()
+        finally:
+            sys.meta_path.remove(blocker)
+        self.assertEqual(len(base64.b64decode(private)), 32)
+        self.assertEqual(len(base64.b64decode(public)), 32)
+        derived = profiles._x25519_scalar_mult(
+            base64.b64decode(private), profiles._X25519_BASEPOINT)
         self.assertEqual(base64.b64encode(derived).decode("ascii"), public)
 
     def test_next_client_ip_skips_used(self):

@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import base64
 import ipaddress
 import os
 import secrets
@@ -87,18 +88,15 @@ def generate_wg_keys() -> tuple[str, str]:
         public = private.public_key()
         priv_bytes = private.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
         pub_bytes = public.public_bytes(Encoding.Raw, PublicFormat.Raw)
-        import base64
 
         return (base64.b64encode(priv_bytes).decode("ascii"),
                 base64.b64encode(pub_bytes).decode("ascii"))
     except ImportError:
-        return _x25519_keys_python()
+        return _x25519_keygen_python()
 
 
 def _x25519_keygen_python() -> tuple[str, str]:
     """X25519 без внешних зависимостей (RFC 7748)."""
-    import base64
-
     private_raw = bytearray(secrets.token_bytes(32))
     private_raw[0] &= 248
     private_raw[31] &= 127
