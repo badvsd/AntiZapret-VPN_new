@@ -25,6 +25,7 @@ jobs:
 
       - name: Проверка синтаксиса PowerShell
         shell: pwsh
+        working-directory: windows
         run: |
           $errors = $null
           [System.Management.Automation.Language.Parser]::ParseFile(
