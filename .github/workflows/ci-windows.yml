@@ -5,9 +5,12 @@ on:
     branches: [main]
     paths:
       - "windows/**"
+      - ".github/workflows/ci-windows.yml"
   pull_request:
     paths:
       - "windows/**"
+      - ".github/workflows/ci-windows.yml"
+  workflow_dispatch:
 
 jobs:
   windows:
