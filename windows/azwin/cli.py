@@ -549,7 +549,25 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def configure_output_encoding() -> None:
+    """Переводит stdout/stderr в UTF-8 с заменой непечатаемых символов.
+
+    В консоли Windows кодировка по умолчанию — cp1252/cp866, и кириллица
+    в выводе падает с UnicodeEncodeError. На CI это проявлялось сразу:
+    `python -m azwin.cli --help` завершался с ошибкой кодировки.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    configure_output_encoding()
     parser = build_parser()
     args = parser.parse_args(argv)
     try:

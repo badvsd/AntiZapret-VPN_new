@@ -525,5 +525,30 @@ class TestProtocolFamilies(unittest.TestCase):
             self.assertIn((family.key, family.layer), profiles.LAYER_SUBNET)
 
 
+class TestOutputEncoding(unittest.TestCase):
+    """Вывод в консоли Windows: кодировка cp125x не должна ронять программу."""
+
+    def test_configure_output_encoding_is_safe(self):
+        """Повторный вызов не должен ломать уже перенастроенный поток."""
+        from azwin import cli
+
+        cli.configure_output_encoding()
+        cli.configure_output_encoding()
+        self.assertTrue(sys.stdout.encoding.lower().replace("-", "")
+                        in ("utf8", "utf8sig"))
+
+    def test_cli_help_under_cp1252(self):
+        """`--help` не должен падать с UnicodeEncodeError (регресс CI)."""
+        import subprocess
+
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = "cp1252"
+        env["PYTHONPATH"] = os.path.join(os.path.dirname(__file__), "..")
+        proc = subprocess.run(
+            [sys.executable, "-m", "azwin.cli", "--help"],
+            capture_output=True, env=env, timeout=60)
+        self.assertEqual(proc.returncode, 0, proc.stderr.decode("utf-8", "replace"))
+
+
 if __name__ == "__main__":
     unittest.main()

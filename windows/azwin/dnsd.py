@@ -16,7 +16,7 @@ import sys
 import time
 
 from . import lists, resolver
-from .cli import Paths, load_lists
+from .cli import Paths, configure_output_encoding, load_lists
 
 
 def build_resolver(root: str, mode: str, listen: str, port: int,
@@ -55,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from .cli import DEFAULT_ROOT
 
+    configure_output_encoding()
     root = args.root or DEFAULT_ROOT
     res = build_resolver(root, args.mode, args.listen, args.port,
                          args.fake_cidr, args.ipv6_mode, args.adblock,
