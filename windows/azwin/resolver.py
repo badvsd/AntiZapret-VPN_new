@@ -140,12 +140,17 @@ class FakeIpPool:
                 self._pool.add(entry["fake_ip"])
 
     def expire_old(self) -> list[tuple[str, bool]]:
-        """Возвращает список истёкших (real_ip, warp) и освобождает адреса."""
+        """Возвращает список истёкших (real_ip, warp) и освобождает адреса.
+
+        Сравнение нестрогое (`>=`): при `expire=0` запись истекает сразу,
+        даже если выделение и проверка попали в одну секунду. Иначе тест
+        с `expire=0` зависел от точности часов.
+        """
         now = time.time()
         expired: list[tuple[str, bool]] = []
         with self._lock:
             for key, entry in list(self._map.items()):
-                if now - entry["used"] > self._expire:
+                if now - entry["used"] >= self._expire:
                     expired.append(key)
                     self._pool.add(entry["fake_ip"])
                     del self._map[key]

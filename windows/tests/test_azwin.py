@@ -206,11 +206,19 @@ class TestFakeIpPool(unittest.TestCase):
         self.assertEqual(pool.mapping(), {fake: "1.2.3.4"})
 
     def test_expiry(self):
+        """Запись истекает по истечении времени простоя."""
         pool = resolver.FakeIpPool("198.18.0.0/15", expire=0)
         pool.allocate("1.2.3.4")
         expired = pool.expire_old()
         self.assertEqual(len(expired), 1)
         self.assertEqual(len(pool), 0)
+
+    def test_expiry_keeps_fresh_entries(self):
+        """Свежая запись не истекает, пока не прошло достаточно времени."""
+        pool = resolver.FakeIpPool("198.18.0.0/15", expire=3600)
+        pool.allocate("1.2.3.4")
+        self.assertEqual(pool.expire_old(), [])
+        self.assertEqual(len(pool), 1)
 
 
 class TestResolverPolicy(unittest.TestCase):
