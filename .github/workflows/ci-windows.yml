@@ -40,3 +40,37 @@ jobs:
         run: |
           python -m azwin.cli --help
           python -m azwin.cli --root $env:RUNNER_TEMP\azwin parse
+
+  linux:
+    # Тот же Codespace-контейнер: Python без пакета `cryptography`.
+    # Порт обязан работать и без внешних зависимостей.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Тесты без внешних зависимостей
+        working-directory: windows
+        run: |
+          python -c "import cryptography" 2>/dev/null && echo "cryptography есть" || echo "cryptography отсутствует (как в Codespace)"
+          python -m unittest discover -s tests -v
+
+      - name: Модуль импортируется без cryptography
+        working-directory: windows
+        run: |
+          python -c "
+          import sys, importlib.abc
+          class B(importlib.abc.MetaPathFinder):
+              def find_spec(self, name, path=None, target=None):
+                  if name == 'cryptography' or name.startswith('cryptography.'):
+                      raise ModuleNotFoundError(name)
+                  return None
+          sys.meta_path.insert(0, B())
+          from azwin import profiles
+          priv, pub = profiles.generate_wg_keys()
+          assert priv and pub
+          print('ключи генерируются без cryptography: ok')
+          "
